@@ -7,8 +7,9 @@
     <string name="lambda">lambda</string>
     <string name="alpha">alpha</string>
     <string name="beta">beta</string>
-    <string name="step">Step</string>
+    <string name="deltaT">first Δt</string>
     <string name="start">Start</string>
+    <string name="next">Next</string>
     <string name="name">Имя</string>
     <string name="status">Статус</string>
     <string name="busy">Занят</string>
@@ -29,4 +30,8 @@
     <string name="device_by_number">П%d</string>
     <string name="koef_use">Коэффициент использования</string>
     <string name="float_3_digits_after_dot">%1$.3f</string>
+    <string name="title_activity_main">MainActivity</string>
+    <string name="tab_text_1">Пошаговый режим</string>
+    <string name="tab_text_2">Результат</string>
+    <string name="hello_blank_fragment">Hello blank fragment</string>
 </resources>

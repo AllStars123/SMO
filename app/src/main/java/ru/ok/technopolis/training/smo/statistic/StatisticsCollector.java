@@ -3,24 +3,20 @@ package ru.ok.technopolis.training.smo.statistic;
 import androidx.annotation.NonNull;
 
 import java.util.List;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicLong;
 
 import ru.ok.technopolis.training.smo.activity.SmoActivity;
-import ru.ok.technopolis.training.smo.controller.Controller;
 import ru.ok.technopolis.training.smo.device.Device;
 import ru.ok.technopolis.training.smo.request.Request;
 
 public class StatisticsCollector {
 
-    private final AtomicLong processingTimeAllDevice;
-    private final AtomicLong timeInBufferAllRequests;
-    private final AtomicInteger countRefusalRequests;
-    private final AtomicInteger countProcessedRequest;
     private final SmoActivity smoActivity;
 
+    private long processingTimeAllDevice;
+    private long timeInBufferAllRequests;
     private long startTime;
-    private long endTime;
+    private int countRefusalRequests;
+    private int countProcessedRequest;
     private int countSources;
     private int countDevices;
     private int countRequests;
@@ -30,10 +26,10 @@ public class StatisticsCollector {
     private float beta;
 
     public StatisticsCollector(@NonNull final SmoActivity smoActivity) {
-        this.processingTimeAllDevice = new AtomicLong(0);
-        this.timeInBufferAllRequests = new AtomicLong(0);
-        this.countRefusalRequests = new AtomicInteger(0);
-        this.countProcessedRequest = new AtomicInteger(0);
+        this.processingTimeAllDevice = 0;
+        this.timeInBufferAllRequests = 0;
+        this.countRefusalRequests = 0;
+        this.countProcessedRequest = 0;
         this.smoActivity = smoActivity;
     }
 
@@ -55,30 +51,34 @@ public class StatisticsCollector {
         startTime = System.currentTimeMillis();
     }
 
-    public void onEndSystem(List<Device> devices) {
-        endTime = System.currentTimeMillis();
-        Controller.runOnMainThread(() -> smoActivity.showResult(countSources, countDevices, bufferCapacity, lambda, alpha, beta,
-                (double) countRefusalRequests.get() / (countRefusalRequests.get() + countProcessedRequest.get()),
-                ((double) processingTimeAllDevice.get() / countDevices) / (endTime - startTime),
-                (((double) processingTimeAllDevice.get() / countRequests) + ((double) timeInBufferAllRequests.get() / (countRequests + countRefusalRequests.get()))) / 1000,
-                devices, endTime - startTime));
+    public void onEndSystem(List<Device> devices, long sumDeltaT) {
+        long endTime = System.currentTimeMillis() + sumDeltaT;
+        smoActivity.showResult(countSources, countDevices, bufferCapacity, lambda, alpha, beta,
+                (double) countRefusalRequests / (countRefusalRequests + countProcessedRequest),
+                ((double) processingTimeAllDevice / countDevices) / (endTime - startTime),
+                (((double) processingTimeAllDevice / countRequests) + ((double) timeInBufferAllRequests / (countRequests + countRefusalRequests))) / 1000,
+                devices, endTime - startTime);
     }
 
     public void onDeviceEndProcessing(@NonNull Request request, long processingTime) {
-        timeInBufferAllRequests.set(timeInBufferAllRequests.get() + request.timeInBuffer());
-        processingTimeAllDevice.set(processingTimeAllDevice.get() + processingTime);
+        timeInBufferAllRequests += request.timeInBuffer() + request.getSumDeltaTBuffer();
+        processingTimeAllDevice += processingTime;
+        countProcessedRequest++;
     }
 
     public void onRequestRefusal(@NonNull Request request) {
-        timeInBufferAllRequests.set(timeInBufferAllRequests.get() + request.timeInBuffer());
-        countRefusalRequests.incrementAndGet();
-    }
-
-    public int incrementAndGetCountProcessedRequest() {
-        return countProcessedRequest.incrementAndGet();
+        timeInBufferAllRequests += request.timeInBuffer() + request.getSumDeltaTBuffer();
+        countRefusalRequests++;
     }
 
     public int getCountProcessedRequest() {
-        return countProcessedRequest.get();
+        return countProcessedRequest;
+    }
+
+    public void clear() {
+        this.processingTimeAllDevice = 0;
+        this.timeInBufferAllRequests = 0;
+        this.countRefusalRequests = 0;
+        this.countProcessedRequest = 0;
     }
 }

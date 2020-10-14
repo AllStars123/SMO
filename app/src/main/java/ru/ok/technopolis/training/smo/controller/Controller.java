@@ -21,28 +21,21 @@ import ru.ok.technopolis.training.smo.request.Request;
 import ru.ok.technopolis.training.smo.source.Source;
 import ru.ok.technopolis.training.smo.statistic.StatisticsCollector;
 
-public class Controller {
+public class Controller implements Runnable {
 
-    private static Handler handler;
+    private static final Handler handler = new Handler(Looper.getMainLooper());
 
     private final List<Device> devices;
     private final List<Source> sources;
     private final SourceAdapter sourceAdapter;
     private final DeviceAdapter deviceAdapter;
     private final StatisticsCollector statisticsCollector;
+    private final ExecutorService executorService;
 
-    private int countSources;
-    private int countDevices;
     private int countRequests;
-    private int bufferCapacity;
-    private int stepSize;
-    private int step = 1;
-    private float lambda;
-    private float alpha;
-    private float beta;
-    private boolean isSystemWorking = false;
     private AbstractBuffer buffer;
-    private ExecutorService sourceExecutor;
+    private long deltaT = 0;
+    private long sumDeltaT = 0;
 
     public Controller(@NonNull final SourceAdapter sourceAdapter,
                       @NonNull final DeviceAdapter deviceAdapter,
@@ -52,109 +45,139 @@ public class Controller {
         this.statisticsCollector = new StatisticsCollector(smoActivity);
         this.devices = new ArrayList<>();
         this.sources = new ArrayList<>();
+        this.executorService = Executors.newSingleThreadExecutor();
     }
 
-    public void submitRequest(@NonNull Source source, @NonNull Request request, long timeGeneration) {
-        Request refusedRequest = buffer.putRequest(request);
-        if (refusedRequest != null) {
-            System.out.printf("request %d.%d was refused%n", refusedRequest.getSourceNumber(), refusedRequest.getRequestNumber());
-            sources.get(refusedRequest.getSourceNumber() - 1).incrementRefusalRequests();
-            statisticsCollector.onRequestRefusal(refusedRequest);
-        }
-        if (hasFreeDevice()) {
-            final Request requestForDevice = buffer.getRequestForDevice();
-            if (!sendRequestToDevice(requestForDevice) && requestForDevice != null) {
-                refusedRequest = buffer.putRequest(requestForDevice);
-                if (refusedRequest != null) {
-                    System.out.printf("request %d.%d was refused%n", refusedRequest.getSourceNumber(), refusedRequest.getRequestNumber());
-                    sources.get(refusedRequest.getSourceNumber() - 1).incrementRefusalRequests();
-                    statisticsCollector.onRequestRefusal(refusedRequest);
+    @Override
+    public void run() {
+        while (statisticsCollector.getCountProcessedRequest() < countRequests) {
+            sumDeltaT += deltaT;
+            for (Request requestInBuffer : buffer.getRequests()) {
+                if (requestInBuffer != null) {
+                    requestInBuffer.addDeltaTBuffer(deltaT);
                 }
             }
-        }
-    }
-
-    public void processingFinished(@NonNull final Device device, @NonNull Request request, long processingTime) {
-        statisticsCollector.onDeviceEndProcessing(request, processingTime);
-        if (statisticsCollector.incrementAndGetCountProcessedRequest() >= countRequests) {
-            endSystem();
-        } else {
-            if (!buffer.isEmpty()) {
-                final Request requestForDevice = buffer.getRequestForDevice();
-                if (!sendRequestToDevice(requestForDevice) && requestForDevice != null) {
-                    Request refusedRequest = buffer.putRequest(requestForDevice);
-                    if (refusedRequest != null) {
-                        System.out.printf("request %d.%d was refused%n", refusedRequest.getSourceNumber(), refusedRequest.getRequestNumber());
-                        sources.get(refusedRequest.getSourceNumber() - 1).incrementRefusalRequests();
-                        statisticsCollector.onRequestRefusal(refusedRequest);
+            for (Source source : sources) {
+                source.minusGenerateTimeLastRequest(deltaT);
+            }
+            for (Device device : devices) {
+                final Request request = device.getRequest();
+                if (request != null) {
+                    device.minusDeltaT(deltaT);
+                }
+            }
+            boolean needRefresh = false;
+            long newNearestTime = Long.MAX_VALUE;
+            for (Source source : sources) {
+                if (source.getGenerateTimeLastRequest() <= System.currentTimeMillis()) {
+                    System.out.println("sources true");
+                    needRefresh = true;
+                    source.submitRequest();
+                    final Request request = source.getRequest();
+                    source.startGenerateNewRequest();
+                    Request rejectedRequest = buffer.putRequest(request);
+                    if (rejectedRequest != null) {
+                        System.out.printf("request %d.%d was refused%n", rejectedRequest.getSourceNumber(), rejectedRequest.getRequestNumber());
+                        sources.get(rejectedRequest.getSourceNumber() - 1).incrementRefusalRequests();
+                        statisticsCollector.onRequestRefusal(rejectedRequest);
+                    }
+                    if (hasFreeDevice()) {
+                        final Request requestForDevice = buffer.getRequestForDevice();
+                        if (!sendRequestToDevice(requestForDevice) && requestForDevice != null) {
+                            rejectedRequest = buffer.putRequest(requestForDevice);
+                            if (rejectedRequest != null) {
+                                System.out.printf("request %d.%d was refused%n", rejectedRequest.getSourceNumber(), rejectedRequest.getRequestNumber());
+                                sources.get(rejectedRequest.getSourceNumber() - 1).incrementRefusalRequests();
+                                statisticsCollector.onRequestRefusal(rejectedRequest);
+                            }
+                        }
                     }
                 }
+                if (source.getGenerateTimeLastRequest() != 0 && source.getGenerateTimeLastRequest() < newNearestTime) {
+                    newNearestTime = source.getGenerateTimeLastRequest();
+                }
             }
+
+            for (Device device : devices) {
+                if (device.getEndProcessingTime() - deltaT <= System.currentTimeMillis()) {
+                    needRefresh = true;
+                    final Request processedRequest = device.getRequest();
+                    final long processingTime = device.submitEnd();
+                    if (processingTime != 0) {
+                        statisticsCollector.onDeviceEndProcessing(processedRequest, processingTime);
+                    }
+                    if (!buffer.isEmpty()) {
+                        final Request requestForDevice = buffer.getRequestForDevice();
+                        if (!sendRequestToDevice(requestForDevice) && requestForDevice != null) {
+                            Request rejectedRequest = buffer.putRequest(requestForDevice);
+                            if (rejectedRequest != null) {
+                                System.out.printf("request %d.%d was refused%n", rejectedRequest.getSourceNumber(), rejectedRequest.getRequestNumber());
+                                sources.get(rejectedRequest.getSourceNumber() - 1).incrementRefusalRequests();
+                                statisticsCollector.onRequestRefusal(rejectedRequest);
+                            }
+                        }
+                    }
+                }
+                if (device.getEndProcessingTime() != 0 && device.getEndProcessingTime() < newNearestTime) {
+                    newNearestTime = device.getEndProcessingTime();
+                }
+            }
+            if (needRefresh) {
+                runOnMainThread(() -> {
+                    sourceAdapter.notifyDataSetChanged();
+                    deviceAdapter.notifyDataSetChanged();
+                    System.out.println("notify");
+                });
+            }
+            deltaT = newNearestTime - System.currentTimeMillis();
+            System.out.println("main cycle iteration");
         }
-        if (statisticsCollector.getCountProcessedRequest() >= step * stepSize || !isSystemWorking) {
-            runOnMainThread(() -> {
-                step++;
-                sourceAdapter.notifyDataSetChanged();
-                deviceAdapter.notifyDataSetChanged();
-            });
-        }
+        endSystem();
     }
 
     public void startSystem(int countSources,
                             int countDevices,
                             int countRequests,
                             int bufferCapacity,
-                            int stepSize,
                             float lambda,
                             float alpha,
                             float beta) {
-        this.countSources = countSources;
-        this.countDevices = countDevices;
         this.countRequests = countRequests;
-        this.bufferCapacity = bufferCapacity;
-        this.stepSize = stepSize;
-        this.lambda = lambda;
-        this.alpha = alpha;
-        this.beta = beta;
         this.buffer = new RingBuffer(bufferCapacity);
-        this.sourceExecutor = Executors.newFixedThreadPool(countSources);
         for (int i = 1; i <= countDevices; i++) {
             this.devices.add(new Device(i, alpha, beta, this));
         }
         deviceAdapter.setNewData(devices);
         statisticsCollector.onStartSystem(countSources, countDevices, countRequests, bufferCapacity, lambda, alpha, beta);
-        isSystemWorking = true;
         for (int i = 1; i <= countSources; i++) {
             final Source source = new Source(lambda, i, this);
             sources.add(source);
-            this.sourceExecutor.submit(source);
         }
         sourceAdapter.setNewData(sources);
+        executorService.submit(this);
     }
 
     public void endSystem() {
-        for (Request request : buffer.getRequests()) {
-            if (request != null) {
-                sources.get(request.getSourceNumber() - 1).incrementRefusalRequests();
-            }
-        }
         runOnMainThread(() -> {
-            step++;
+            for (Request request : buffer.getRequests()) {
+                if (request != null) {
+                    sources.get(request.getSourceNumber() - 1).incrementRefusalRequests();
+                }
+            }
+
             sourceAdapter.notifyDataSetChanged();
             deviceAdapter.notifyDataSetChanged();
-        });
-        if (isSystemWorking) {
-            isSystemWorking = false;
-            sourceExecutor.shutdown();
-            for (Device device : devices) {
-                device.onSystemEndWorking();
-            }
-            for (Source source : sources) {
-                source.onSystemEndWorking();
-            }
             buffer.clear();
-            statisticsCollector.onEndSystem(devices);
-        }
+            statisticsCollector.onEndSystem(devices, sumDeltaT);
+        });
+    }
+
+    public void clear() {
+        devices.clear();
+        sources.clear();
+        statisticsCollector.clear();
+        deltaT = 0;
+        sumDeltaT = 0;
     }
 
     private boolean sendRequestToDevice(@Nullable Request request) {
@@ -179,9 +202,6 @@ public class Controller {
     }
 
     public static void runOnMainThread(Runnable runnable) {
-        if (handler == null) {
-            handler = new Handler(Looper.getMainLooper());
-        }
         handler.post(runnable);
     }
 }

@@ -6,94 +6,160 @@
     android:layout_height="match_parent"
     tools:context=".activity.LaunchActivity">
 
-    <EditText
-        android:id="@+id/count_source"
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="30dp"
+        android:text="@string/app_name"
+        android:textSize="80sp"
+        android:textColor="@color/red"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintRight_toRightOf="parent"
+        app:layout_constraintLeft_toLeftOf="parent"/>
+
+    <TextView
+        android:id="@+id/count_source_tv"
         style="@style/TextDefault"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginHorizontal="16dp"
-        android:layout_marginTop="16dp"
-        android:hint="@string/count_sources"
-        android:inputType="number"
+        android:text="@string/count_sources"
+        app:layout_constraintVertical_chainStyle="packed"
+        app:layout_constraintBottom_toTopOf="@id/count_source"
         app:layout_constraintTop_toTopOf="parent" />
 
-    <EditText
-        android:id="@+id/count_devices"
-        style="@style/TextDefault"
+    <com.google.android.material.slider.Slider
+        android:id="@+id/count_source"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginHorizontal="16dp"
-        android:hint="@string/count_devices"
-        android:inputType="number"
+        android:stepSize="1"
+        android:valueFrom="0"
+        android:valueTo="100"
+        app:haloRadius="14dp"
+        app:labelStyle="@style/Widget.MaterialComponents.Tooltip_Zoom"
+        app:layout_constraintBottom_toTopOf="@id/count_devices_tv"
+        app:layout_constraintTop_toBottomOf="@id/count_source_tv"
+        app:thumbRadius="10dp" />
+
+    <TextView
+        android:id="@+id/count_devices_tv"
+        style="@style/TextDefault"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="32dp"
+        android:text="@string/count_devices"
+        app:layout_constraintBottom_toTopOf="@id/count_devices"
         app:layout_constraintTop_toBottomOf="@id/count_source" />
 
-    <EditText
-        android:id="@+id/count_requests"
-        style="@style/TextDefault"
+    <com.google.android.material.slider.Slider
+        android:id="@+id/count_devices"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginHorizontal="16dp"
-        android:hint="@string/count_requests"
-        android:inputType="number"
+        android:stepSize="1"
+        android:valueFrom="0"
+        android:valueTo="100"
+        app:haloRadius="14dp"
+        app:labelStyle="@style/Widget.MaterialComponents.Tooltip_Zoom"
+        app:layout_constraintBottom_toTopOf="@id/count_requests_tv"
+        app:layout_constraintTop_toBottomOf="@id/count_devices_tv"
+        app:thumbRadius="10dp" />
+
+    <TextView
+        android:id="@+id/count_requests_tv"
+        style="@style/TextDefault"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="32dp"
+        android:text="@string/count_requests"
+        app:layout_constraintBottom_toTopOf="@id/count_requests"
         app:layout_constraintTop_toBottomOf="@id/count_devices" />
 
-    <EditText
-        android:id="@+id/buffer_capacity"
-        style="@style/TextDefault"
+    <com.google.android.material.slider.Slider
+        android:id="@+id/count_requests"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginHorizontal="16dp"
-        android:hint="@string/buffer_capacity"
-        android:inputType="number"
+        android:stepSize="50"
+        android:valueFrom="0"
+        android:valueTo="100000"
+        app:haloRadius="14dp"
+        app:labelStyle="@style/Widget.MaterialComponents.Tooltip_Zoom"
+        app:layout_constraintBottom_toTopOf="@id/buffer_capacity_tv"
+        app:layout_constraintTop_toBottomOf="@id/count_requests_tv"
+        app:thumbRadius="10dp" />
+
+    <TextView
+        android:id="@+id/buffer_capacity_tv"
+        style="@style/TextDefault"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="32dp"
+        android:text="@string/buffer_capacity"
+        app:layout_constraintBottom_toTopOf="@id/buffer_capacity"
         app:layout_constraintTop_toBottomOf="@id/count_requests" />
+
+    <com.google.android.material.slider.Slider
+        android:id="@+id/buffer_capacity"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginHorizontal="16dp"
+        android:stepSize="1"
+        android:valueFrom="0"
+        android:valueTo="100"
+        app:haloRadius="14dp"
+        app:labelStyle="@style/Widget.MaterialComponents.Tooltip_Zoom"
+        app:layout_constraintBottom_toTopOf="@id/lambda"
+        app:layout_constraintTop_toBottomOf="@id/buffer_capacity_tv"
+        app:thumbRadius="10dp" />
 
     <EditText
         android:id="@+id/lambda"
         style="@style/TextDefault"
-        android:layout_width="match_parent"
+        android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_marginHorizontal="16dp"
+        android:backgroundTint="@color/grey"
         android:hint="@string/lambda"
         android:inputType="numberDecimal"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintLeft_toLeftOf="parent"
+        app:layout_constraintRight_toLeftOf="@id/alpha"
         app:layout_constraintTop_toBottomOf="@id/buffer_capacity" />
 
     <EditText
         android:id="@+id/alpha"
         style="@style/TextDefault"
-        android:layout_width="match_parent"
+        android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_marginHorizontal="16dp"
+        android:backgroundTint="@color/grey"
         android:hint="@string/alpha"
         android:inputType="numberDecimal"
-        app:layout_constraintTop_toBottomOf="@id/lambda" />
+        app:layout_constraintLeft_toRightOf="@+id/lambda"
+        app:layout_constraintRight_toLeftOf="@id/beta"
+        app:layout_constraintTop_toTopOf="@id/lambda" />
 
     <EditText
         android:id="@+id/beta"
         style="@style/TextDefault"
-        android:layout_width="match_parent"
+        android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_marginHorizontal="16dp"
+        android:backgroundTint="@color/grey"
         android:hint="@string/beta"
         android:inputType="numberDecimal"
-        app:layout_constraintTop_toBottomOf="@id/alpha" />
-
-    <EditText
-        android:id="@+id/step"
-        style="@style/TextDefault"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginHorizontal="16dp"
-        android:hint="@string/step"
-        android:inputType="numberDecimal"
-        app:layout_constraintTop_toBottomOf="@id/beta" />
+        app:layout_constraintLeft_toRightOf="@+id/alpha"
+        app:layout_constraintRight_toRightOf="parent"
+        app:layout_constraintTop_toTopOf="@id/alpha" />
 
     <TextView
         android:id="@+id/start_tv"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginBottom="40dp"
-        android:background="@color/colorAccent"
-        android:padding="8dp"
+        android:background="@drawable/background_round_blue"
+        android:padding="24dp"
         android:text="@string/start"
         android:textColor="@color/black"
         android:textSize="40sp"
